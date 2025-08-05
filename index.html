@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Planilhas de Cortes</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 8px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 420px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            padding: 24px 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 0.9em;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+            font-weight: 400;
+        }
+
+        .main-content {
+            padding: 20px;
+        }
+
+        .tab-container {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 4px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px 8px;
+            background: transparent;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            min-width: 80px;
+            text-align: center;
+            color: #6c757d;
+        }
+
+        .tab.active {
+            background: #6c5ce7;
+            color: white;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-title {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #2d3436;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .form-row.two-cols {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #2d3436;
+            font-size: 14px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+            -webkit-appearance: none;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #6c5ce7;
+            box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+
+        .btn:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 184, 148, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e17055, #fd79a8);
+            color: white;
+            box-shadow: 0 4px 15px rgba(225, 112, 85, 0.3);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #fdcb6e, #f39c12);
+            color: white;
+            box-shadow: 0 4px 15px rgba(253, 203, 110, 0.3);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .company-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .company-card {
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            border-radius: 16px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .company-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+        }
+
+        .company-card:active {
+            transform: scale(0.98);
+        }
+
+        .company-name {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #2d3436;
+            margin-bottom: 8px;
+        }
+
+        .company-price {
+            font-size: 1.1em;
+            color: #00b894;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .company-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .company-actions .btn {
+            margin-bottom: 0;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .entry-preview {
+            background: linear-gradient(135deg, #e8f4fd, #ffffff);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 2px solid #74b9ff;
+            position: relative;
+        }
+
+        .entry-preview::before {
+            content: '✓';
+            position: absolute;
+            top: -8px;
+            right: 16px;
+            background: #00b894;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .entry-preview h4 {
+            color: #0984e3;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+
+        .entry-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .entry-info div {
+            background: rgba(116, 185, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+
+        .entry-info strong {
+            color: #2d3436;
+        }
+
+        .company-selector {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .company-selector h4 {
+            color: #2d3436;
+            margin-bottom: 16px;
+            font-size: 1.1em;
+        }
+
+        .company-checkboxes {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-item:has(input:checked) {
+            border-color: #6c5ce7;
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.1), rgba(162, 155, 254, 0.1));
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            margin: 0;
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .alert {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin: 16px 0;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #d1f2eb, #a7f3d0);
+            color: #047857;
+        }
+
+        .alert-error {
+            background: linear-gradient(135deg, #fecaca, #fed7d7);
+            color: #b91c1c;
+        }
+
+        .select-all-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .select-all-controls .btn {
+            margin-bottom: 0;
+            padding: 8px 16px;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        .pdf-preview {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 2px solid #e9ecef;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .month-display {
+            text-align: center;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+
+        .company-report {
+            margin-bottom: 24px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .company-header {
+            background: linear-gradient(135deg, #2d3436, #636e72);
+            color: white;
+            padding: 16px;
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+
+        .entries-table {
+            width: 100%;
+            font-size: 14px;
+        }
+
+        .entries-table th,
+        .entries-table td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .entries-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 12px;
+            color: #636e72;
+        }
+
+        .entries-table .total-row {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            color: white;
+            font-weight: 700;
+        }
+
+        .grand-total {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .loading-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 300px;
+            margin: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e9ecef;
+            border-top: 4px solid #6c5ce7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #636e72;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+                min-height: 100vh;
+            }
+            
+            body {
+                padding: 0;
+            }
+
+            .form-row.two-cols {
+                grid-template-columns: 1fr;
+            }
+
+            .company-actions {
+                flex-direction: column;
+            }
+
+            .entry-info {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Controle de Cortes</h1>
+            <p>Gestão completa de fretes e relatórios</p>
+        </div>
+
+        <div class="main-content">
+            <div class="tab-container">
+                <button class="tab active" onclick="showTab('companies')">Empresas</button>
+                <button class="tab" onclick="showTab('entry')">Registrar</button>
+                <button class="tab" onclick="showTab('report')">Relatório</button>
+            </div>
+
+            <!-- Tab Empresas -->
+            <div id="companies" class="tab-content active">
+                <div class="section-title">🏢 Minhas Empresas</div>
+                
+                <div class="form-group">
+                    <div class="form-row">
+                        <div>
+                            <label for="companyName">Nome da Empresa</label>
+                            <input type="text" id="companyName" placeholder="Ex: Empresa ABC Ltda">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div>
+                            <label for="companyPrice">Preço por Peça (R$)</label>
+                            <input type="number" id="companyPrice" step="0.01" placeholder="0,00">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="addCompany()">
+                        ➕ Adicionar Empresa
+                    </button>
+                </div>
+
+                <div id="companiesList" class="company-list"></div>
+            </div>
+
+            <!-- Tab Registrar -->
+            <div id="entry" class="tab-content">
+                <div class="section-title">📝 Novo Corte</div>
+                
+                <div class="form-group">
+                    <div class="form-row">
+                        <div>
+                            <label for="entryCompany">Empresa</label>
+                            <select id="entryCompany">
+                                <option value="">Selecione uma empresa</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row two-cols">
+                        <div>
+                            <label for="entryDate">Data</label>
+                            <input type="date" id="entryDate">
+                        </div>
+                        <div>
+                            <label for="entryInvoice">Nota Fiscal</label>
+                            <input type="text" id="entryInvoice" placeholder="123456">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div>
+                            <label for="entryQuantity">Quantidade de Peças</label>
+                            <input type="number" id="entryQuantity" placeholder="100">
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-success" onclick="addEntry()">
+                        ✅ Registrar Corte
+                    </button>
+                </div>
+
+                <div id="entryPreview"></div>
+            </div>
+
+            <!-- Tab Relatório -->
+            <div id="report" class="tab-content">
+                <div class="section-title">📊 Relatório Mensal</div>
+                
+                <div class="form-group">
+                    <div class="form-row">
+                        <div>
+                            <label for="reportMonth">Mês de Referência</label>
+                            <input type="month" id="reportMonth">
+                        </div>
+                    </div>
+                    
+                    <div class="company-selector">
+                        <h4>Selecionar Empresas</h4>
+                        <div class="select-all-controls">
+                            <button class="btn btn-primary" onclick="selectAllCompanies()">Todas</button>
+                            <button class="btn btn-warning" onclick="clearAllCompanies()">Limpar</button>
+                        </div>
+                        <div id="companyCheckboxes" class="company-checkboxes"></div>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="generateReport()">
+                        📋 Gerar Relatório
+                    </button>
+                    
+                    <button class="btn btn-success hidden" id="generatePdfBtn" onclick="generatePDF()">
+                        📄 Gerar PDF
+                    </button>
+                </div>
+
+                <div id="reportContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+        
+        // Dados em memória
+        let companies = [];
+        let entries = [];
+        let currentReportData = null;
+
+        // Carregar dados quando a página inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            // Definir data atual nos campos de data
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('entryDate').value = today;
+            
+            const now = new Date();
+            document.getElementById('reportMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        });
+
+        // Carregar dados do localStorage
+        function loadData() {
+            try {
+                const savedCompanies = localStorage.getItem('companies');
+                const savedEntries = localStorage.getItem('entries');
+
+                if (savedCompanies) companies = JSON.parse(savedCompanies);
+                if (savedEntries) entries = JSON.parse(savedEntries);
+
+                updateCompaniesDisplay();
+                updateCompanySelect();
+                updateCompanyCheckboxes();
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+                companies = [];
+                entries = [];
+            }
+        }
+
+        // Salvar dados no localStorage
+        function saveData() {
+            try {
+                localStorage.setItem('companies', JSON.stringify(companies));
+                localStorage.setItem('entries', JSON.stringify(entries));
+            } catch (error) {
+                console.error('Erro ao salvar dados:', error);
+                showAlert('Erro ao salvar dados. Verifique o espaço de armazenamento.', 'error');
+            }
+        }
+
+        // Gerenciar tabs
+        function showTab(tabName) {
+            // Remove active de todas as tabs
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Adiciona active na tab clicada
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+
+            // Configurações específicas para cada tab
+            if (tabName === 'entry') {
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('entryDate').value = today;
+            }
+            if (tabName === 'report') {
+                const now = new Date();
+                document.getElementById('reportMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                updateCompanyCheckboxes();
+            }
+        }
+
+        // Adicionar empresa
+        function addCompany() {
+            const name = document.getElementById('companyName').value.trim();
+            const price = parseFloat(document.getElementById('companyPrice').value);
+
+            if (!name || !price || price <= 0) {
+                showAlert('Por favor, preencha todos os campos corretamente.', 'error');
+                return;
+            }
+
+            if (companies.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+                showAlert('Esta empresa já existe!', 'error');
+                return;
+            }
+
+            companies.push({
+                id: Date.now(),
+                name: name,
+                price: price
+            });
+
+            // Limpar campos
+            document.getElementById('companyName').value = '';
+            document.getElementById('companyPrice').value = '';
+
+            updateCompaniesDisplay();
+            updateCompanySelect();
+            updateCompanyCheckboxes();
+            saveData();
+            showAlert('Empresa adicionada com sucesso!', 'success');
+        }
+
+        // Atualizar exibição das empresas
+        function updateCompaniesDisplay() {
+            const container = document.getElementById('companiesList');
+            
+            if (companies.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path>
+                            <path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <h3>Nenhuma empresa cadastrada</h3>
+                        <p>Adicione sua primeira empresa para começar</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            companies.forEach(company => {
+                const card = document.createElement('div');
+                card.className = 'company-card';
+                card.innerHTML = `
+                    <div class="company-name">${company.name}</div>
+                    <div class="company-price">R$ ${company.price.toFixed(2)} por peça</div>
+                    <div class="company-actions">
+                        <button class="btn btn-warning" onclick="editCompany(${company.id})">✏️ Editar</button>
+                        <button class="btn btn-danger" onclick="deleteCompany(${company.id})">🗑️ Excluir</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Editar empresa
+        function editCompany(id) {
+            const company = companies.find(c => c.id === id);
+            if (!company) return;
+
+            const newName = prompt('Novo nome da empresa:', company.name);
+            if (!newName || newName.trim() === '') return;
+
+            const newPrice = prompt('Novo preço por peça:', company.price);
+            if (!newPrice || parseFloat(newPrice) <= 0) return;
+
+            company.name = newName.trim();
+            company.price = parseFloat(newPrice);
+            
+            updateCompaniesDisplay();
+            updateCompanySelect();
+            updateCompanyCheckboxes();
+            saveData();
+            showAlert('Empresa atualizada com sucesso!', 'success');
+        }
+
+        // Excluir empresa
+        function deleteCompany(id) {
+            if (confirm('Tem certeza que deseja excluir esta empresa?\n\nTodos os registros relacionados também serão excluídos.')) {
+                companies = companies.filter(c => c.id !== id);
+                entries = entries.filter(e => e.companyId !== id);
+                
+                updateCompaniesDisplay();
+                updateCompanySelect();
+                updateCompanyCheckboxes();
+                saveData();
+                showAlert('Empresa excluída com sucesso!', 'success');
+            }
+        }
+
+        // Atualizar select de empresas
+        function updateCompanySelect() {
+            const select = document.getElementById('entryCompany');
+            select.innerHTML = '<option value="">Selecione uma empresa</option>';
+
+            companies.forEach(company => {
+                const option = document.createElement('option');
+                option.value = company.id;
+                option.textContent = company.name;
+                select.appendChild(option);
+            });
+        }
+
+        // Atualizar checkboxes de empresas
+        function updateCompanyCheckboxes() {
+            const container = document.getElementById('companyCheckboxes');
+            container.innerHTML = '';
+
+            if (companies.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #636e72;">Nenhuma empresa cadastrada</p>';
+                return;
+            }
+
+            companies.forEach(company => {
+                const item = document.createElement('div');
+                item.className = 'checkbox-item';
+                item.innerHTML = `
+                    <input type="checkbox" id="company_${company.id}" value="${company.id}">
+                    <label for="company_${company.id}">${company.name}</label>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // Selecionar todas as empresas
+        function selectAllCompanies() {
+            document.querySelectorAll('#companyCheckboxes input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+        }
+
+        // Limpar seleção de empresas
+        function clearAllCompanies() {
+            document.querySelectorAll('#companyCheckboxes input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+        }
+
+        // Adicionar registro
+        function addEntry() {
+            const companyId = parseInt(document.getElementById('entryCompany').value);
+            const date = document.getElementById('entryDate').value;
+            const invoice = document.getElementById('entryInvoice').value.trim();
+            const quantity = parseInt(document.getElementById('entryQuantity').value);
+
+            if (!companyId || !date || !invoice || !quantity || quantity <= 0) {
+                showAlert('Por favor, preencha todos os campos corretamente.', 'error');
+                return;
+            }
+
+            const company = companies.find(c => c.id === companyId);
+            if (!company) {
+                showAlert('Empresa não encontrada!', 'error');
+                return;
+            }
+
+            // Verificar se já existe uma entrada com a mesma nota fiscal para a mesma empresa
+            const existingEntry = entries.find(e => e.companyId === companyId && e.invoice === invoice);
+            if (existingEntry) {
+                showAlert('Já existe um registro com esta nota fiscal para esta empresa!', 'error');
+                return;
+            }
+
+            const entry = {
+                id: Date.now(),
+                companyId: companyId,
+                companyName: company.name,
+                date: date,
+                invoice: invoice,
+                quantity: quantity,
+                price: company.price,
+                total: quantity * company.price
+            };
+
+            entries.push(entry);
+
+            // Limpar campos
+            document.getElementById('entryInvoice').value = '';
+            document.getElementById('entryQuantity').value = '';
+
+            // Mostrar preview
+            showEntryPreview(entry);
+
+            saveData();
+            showAlert('Registro adicionado com sucesso!', 'success');
+        }
+
+        // Mostrar preview do registro
+        function showEntryPreview(entry) {
+            const container = document.getElementById('entryPreview');
+            const formattedDate = new Date(entry.date).toLocaleDateString('pt-BR');
+            
+            container.innerHTML = `
+                <div class="entry-preview">
+                    <h4>✅ Registro Adicionado</h4>
+                    <div class="entry-info">
+                        <div><strong>Empresa:</strong> ${entry.companyName}</div>
+                        <div><strong>Data:</strong> ${formattedDate}</div>
+                        <div><strong>Nota Fiscal:</strong> ${entry.invoice}</div>
+                        <div><strong>Quantidade:</strong> ${entry.quantity} peças</div>
+                        <div><strong>Valor Unitário:</strong> R$ ${entry.price.toFixed(2)}</div>
+                        <div><strong>Total:</strong> R$ ${entry.total.toFixed(2)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Gerar relatório
+        function generateReport() {
+            const selectedMonth = document.getElementById('reportMonth').value;
+            const selectedCompanies = Array.from(document.querySelectorAll('#companyCheckboxes input:checked')).map(cb => parseInt(cb.value));
+
+            if (!selectedMonth) {
+                showAlert('Por favor, selecione um mês.', 'error');
+                return;
+            }
+
+            if (selectedCompanies.length === 0) {
+                showAlert('Por favor, selecione pelo menos uma empresa.', 'error');
+                return;
+            }
+
+            // Filtrar entradas por mês e empresas selecionadas
+            const [year, month] = selectedMonth.split('-');
+            const filteredEntries = entries.filter(entry => {
+                const entryDate = new Date(entry.date);
+                return entryDate.getFullYear() == year && 
+                       (entryDate.getMonth() + 1) == parseInt(month) &&
+                       selectedCompanies.includes(entry.companyId);
+            });
+
+            if (filteredEntries.length === 0) {
+                showAlert('Nenhum registro encontrado para o período e empresas selecionadas.', 'error');
+                return;
+            }
+
+            // Agrupar por empresa
+            const groupedData = {};
+            filteredEntries.forEach(entry => {
+                if (!groupedData[entry.companyId]) {
+                    groupedData[entry.companyId] = {
+                        name: entry.companyName,
+                        entries: [],
+                        total: 0
+                    };
+                }
+                groupedData[entry.companyId].entries.push(entry);
+                groupedData[entry.companyId].total += entry.total;
+            });
+
+            currentReportData = {
+                month: selectedMonth,
+                data: groupedData,
+                entries: filteredEntries
+            };
+
+            displayReport();
+            document.getElementById('generatePdfBtn').classList.remove('hidden');
+        }
+
+        // Exibir relatório
+        function displayReport() {
+            const container = document.getElementById('reportContent');
+            const monthNames = [
+                'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+            ];
+            
+            const [year, month] = currentReportData.month.split('-');
+            const monthName = monthNames[parseInt(month) - 1];
+
+            let html = `
+                <div class="pdf-preview">
+                    <div class="month-display">${monthName} de ${year}</div>
+            `;
+
+            let grandTotal = 0;
+
+            Object.values(currentReportData.data).forEach(companyData => {
+                html += `
+                    <div class="company-report">
+                        <div class="company-header">${companyData.name}</div>
+                        <table class="entries-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Nota Fiscal</th>
+                                    <th>Quantidade</th>
+                                    <th>Valor Unit.</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                companyData.entries.forEach(entry => {
+                    const formattedDate = new Date(entry.date).toLocaleDateString('pt-BR');
+                    html += `
+                        <tr>
+                            <td>${formattedDate}</td>
+                            <td>${entry.invoice}</td>
+                            <td>${entry.quantity}</td>
+                            <td>R$ ${entry.price.toFixed(2)}</td>
+                            <td>R$ ${entry.total.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                            <tr class="total-row">
+                                <td colspan="4"><strong>Total da Empresa</strong></td>
+                                <td><strong>R$ ${companyData.total.toFixed(2)}</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                `;
+
+                grandTotal += companyData.total;
+            });
+
+            html += `
+                    <div class="grand-total">
+                        Total Geral: R$ ${grandTotal.toFixed(2)}
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Gerar PDF
+        function generatePDF() {
+            if (!currentReportData) {
+                showAlert('Nenhum relatório gerado ainda.', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const doc = new jsPDF();
+                const monthNames = [
+                    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                ];
+                
+                const [year, month] = currentReportData.month.split('-');
+                const monthName = monthNames[parseInt(month) - 1];
+
+                // Título
+                doc.setFontSize(20);
+                doc.text('Relatório de Cortes', 105, 20, { align: 'center' });
+                
+                doc.setFontSize(14);
+                doc.text(`${monthName} de ${year}`, 105, 30, { align: 'center' });
+
+                let yPosition = 50;
+                let grandTotal = 0;
+
+                Object.values(currentReportData.data).forEach(companyData => {
+                    // Nome da empresa
+                    doc.setFontSize(14);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(companyData.name, 20, yPosition);
+                    yPosition += 10;
+
+                    // Tabela da empresa
+                    const tableData = companyData.entries.map(entry => [
+                        new Date(entry.date).toLocaleDateString('pt-BR'),
+                        entry.invoice,
+                        entry.quantity.toString(),
+                        `R$ ${entry.price.toFixed(2)}`,
+                        `R$ ${entry.total.toFixed(2)}`
+                    ]);
+
+                    doc.autoTable({
+                        startY: yPosition,
+                        head: [['Data', 'Nota Fiscal', 'Qtd', 'Valor Unit.', 'Total']],
+                        body: tableData,
+                        foot: [['', '', '', 'Total da Empresa:', `R$ ${companyData.total.toFixed(2)}`]],
+                        theme: 'grid',
+                        headStyles: { fillColor: [108, 92, 231] },
+                        footStyles: { fillColor: [0, 184, 148], textColor: 255 },
+                        styles: { fontSize: 8 },
+                        margin: { left: 20, right: 20 }
+                    });
+
+                    yPosition = doc.lastAutoTable.finalY + 20;
+                    grandTotal += companyData.total;
+
+                    // Verificar se precisa de nova página
+                    if (yPosition > 250) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+                });
+
+                // Total geral
+                doc.setFontSize(16);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(108, 92, 231);
+                doc.text(`Total Geral: R$ ${grandTotal.toFixed(2)}`, 105, yPosition, { align: 'center' });
+
+                // Salvar PDF
+                const fileName = `relatorio_${monthName.toLowerCase()}_${year}.pdf`;
+                doc.save(fileName);
+                
+                hideLoading();
+                showAlert('PDF gerado com sucesso!', 'success');
+            } catch (error) {
+                console.error('Erro ao gerar PDF:', error);
+                hideLoading();
+                showAlert('Erro ao gerar PDF. Tente novamente.', 'error');
+            }
+        }
+
+        // Mostrar alerta
+        function showAlert(message, type) {
+            // Remover alertas existentes
+            document.querySelectorAll('.alert').forEach(alert => alert.remove());
+
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                ${type === 'success' ? '✅' : '❌'} ${message}
+            `;
+
+            document.querySelector('.main-content').insertBefore(alert, document.querySelector('.tab-container').nextSibling);
+
+            // Remover após 5 segundos
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Mostrar loading
+        function showLoading() {
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = `
+                <div class="loading-content">
+                    <div class="spinner"></div>
+                    <h3>Gerando PDF...</h3>
+                    <p>Aguarde um momento</p>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        // Esconder loading
+        function hideLoading() {
+            const overlay = document.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+        }
+
+        // Permitir Enter nos campos de input
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const activeTab = document.querySelector('.tab-content.active');
+                
+                if (activeTab.id === 'companies') {
+                    addCompany();
+                } else if (activeTab.id === 'entry') {
+                    addEntry();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
